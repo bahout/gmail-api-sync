@@ -11,21 +11,22 @@ var SCOPES = ['https://www.googleapis.com/auth/gmail.readonly'];
 var credentials = null;
 var clientSecretPath;
 
-exports.setClientSecretsFile = function (path) {
+exports.setClientSecretsFile = function(path) {
     clientSecretPath = path;
 };
-exports.resetCredentials = function (callback) {
+exports.resetCredentials = function(callback) {
     credentials = null;
     loadClientSecrets(callback);
 };
 
 // Load client secrets from a local file.
-var loadClientSecrets = function (callback) {
+var loadClientSecrets = function(callback) {
     fs.readFile(clientSecretPath, function processClientSecrets(err, content) {
         if (err) {
             debug('Error loading client secret file: ' + err);
             return callback(err);
-        } else {
+        }
+        else {
             credentials = JSON.parse(content);
             return callback();
         }
@@ -34,7 +35,7 @@ var loadClientSecrets = function (callback) {
 
 function checkCredentials(callback) {
     if (!credentials) {
-        loadClientSecrets(function (err) {
+        loadClientSecrets(function(err) {
             if (err) {
                 debug('Error loading credentials.');
                 return callback(err);
@@ -43,7 +44,8 @@ function checkCredentials(callback) {
                 return callback();
             }
         });
-    } else {
+    }
+    else {
         return callback();
     }
 }
@@ -61,12 +63,12 @@ function createOauth2Client() {
  * execute the given callback with the authorized OAuth2 client.
  *
  */
-exports.getNewServerAuthCode = function (newScopes,callback) {
+exports.getNewServerAuthCode = function(newScopes, callback) {
     var scopes = SCOPES;
     if (newScopes) {
         scopes = newScopes;
     }
-    checkCredentials(function (err) {
+    checkCredentials(function(err) {
         if (err) {
             debug('Unable to load credentials. Is Client secret set?');
             return;
@@ -90,11 +92,11 @@ exports.getNewServerAuthCode = function (newScopes,callback) {
  * @param {Object} accessToken The token to create an Oauth2 object.
  * @param {function} callback The callback to call with the authorized client.
  */
-exports.authorizeWithToken = function (accessToken, callback) {
+exports.authorizeWithToken = function(accessToken, callback) {
     if (!accessToken) {
         return callback(new Error('serverAuthCode cannot be null'), null);
     }
-    checkCredentials(function (err) {
+    checkCredentials(function(err) {
         if (err) {
             return callback(err, null);
         }
@@ -104,16 +106,17 @@ exports.authorizeWithToken = function (accessToken, callback) {
     });
 };
 
-exports.getNewAccesToken = function (serverAuthCode, callback) {
-    checkCredentials(function (err) {
+exports.getNewAccesToken = function(serverAuthCode, callback) {
+    checkCredentials(function(err) {
         if (err) {
             return callback(err, null);
         }
         var oauth2Client = createOauth2Client();
-        oauth2Client.getToken(serverAuthCode, function (err, token) {
+        oauth2Client.getToken(serverAuthCode, function(err, token) {
             if (err) {
                 return callback(new Error('Error while trying to retrieve access token. ' + err), null);
-            } else {
+            }
+            else {
                 return callback(null, token);
             }
         });
@@ -121,11 +124,12 @@ exports.getNewAccesToken = function (serverAuthCode, callback) {
 
 };
 
-exports.authorizeWithServerAuth = function (serverAuthCode, callback) {
-    this.getNewAccesToken(serverAuthCode, function (err, token) {
+exports.authorizeWithServerAuth = function(serverAuthCode, callback) {
+    this.getNewAccesToken(serverAuthCode, function(err, token) {
         if (err) {
             return callback(new Error('Error while trying to retrieve access token. ' + err), null);
-        } else {
+        }
+        else {
             var oauth2Client = createOauth2Client();
             oauth2Client.credentials = token;
             callback(null, oauth2Client);
@@ -140,7 +144,7 @@ function partialSyncListMessagesInitial(auth, historyId, callback) {
         userId: 'me',
         startHistoryId: historyId,
         historyTypes: 'messageAdded'
-    }, function (err, response) {
+    }, function(err, response) {
         if (err) {
             return callback(new Error('partialSyncListMessagesInitial: The API returned an error: ' + err), null);
         }
@@ -149,12 +153,13 @@ function partialSyncListMessagesInitial(auth, historyId, callback) {
         }
     });
 }
+
 function partialSyncListMessagesPage(auth, resp, messages, callback) {
     var newMessages = [];
     if (resp.history == null) {
         return callback(null, messages, resp.historyId);
     }
-    resp.history.forEach(function (item) {
+    resp.history.forEach(function(item) {
         newMessages.push(item.messages[0]);
     });
     messages = messages.concat(newMessages);
@@ -167,26 +172,29 @@ function partialSyncListMessagesPage(auth, resp, messages, callback) {
             userId: 'me',
             pageToken: nextPageToken,
             startHistoryId: resp.historyId
-        }, function (err, response) {
+        }, function(err, response) {
             if (err) {
                 return callback(new Error('partialSyncListMessagesPage: The API returned an error: ' + err), null);
-            } else {
+            }
+            else {
                 partialSyncListMessagesPage(auth, response, messages, callback);
             }
         });
-    } else {
+    }
+    else {
         debug('New messages retrived: ' + messages.length);
         callback(null, messages);
     }
 
 }
+
 function listMessagesInitial(auth, query, callback) {
     var gmail = google.gmail('v1');
     gmail.users.messages.list({
         auth: auth,
         userId: 'me',
         q: query
-    }, function (err, response) {
+    }, function(err, response) {
         if (err) {
             return callback(new Error('listMessagesInitial: The API returned an error: ' + err), null);
         }
@@ -195,29 +203,33 @@ function listMessagesInitial(auth, query, callback) {
         }
     });
 }
+
 function listMessagesPage(auth, query, resp, messages, callback) {
     if (resp.messages == null) {
         debug('No new messages found: ');
         return callback(null, messages);
     }
     messages = messages.concat(resp.messages);
-
+    console.log('message  ==', messages.length)
     var nextPageToken = resp.nextPageToken;
     if (nextPageToken) {
         var gmail = google.gmail('v1');
         gmail.users.messages.list({
             auth: auth,
             userId: 'me',
+            maxResults:2000,
             pageToken: nextPageToken,
             q: query
-        }, function (err, response) {
+        }, function(err, response) {
             if (err) {
                 return callback(new Error('listMessagesPage: The API returned an error: ' + err), null);
-            } else {
+            }
+            else {
                 listMessagesPage(auth, query, response, messages, callback);
             }
         });
-    } else {
+    }
+    else {
         debug('New messages retrived: ' + messages.length);
         callback(null, messages);
     }
@@ -226,11 +238,11 @@ function listMessagesPage(auth, query, resp, messages, callback) {
 
 function fullSyncListMessages(auth, query, callback) {
     var messages = [];
-    listMessagesInitial(auth, query, function (err, resp) {
+    listMessagesInitial(auth, query, function(err, resp) {
         if (err) {
             return callback(err, null);
         }
-        listMessagesPage(auth, query, resp, messages, function (err, messages) {
+        listMessagesPage(auth, query, resp, messages, function(err, messages) {
             if (err) {
                 return callback(err, null);
             }
@@ -241,11 +253,11 @@ function fullSyncListMessages(auth, query, callback) {
 
 function partialSyncListMessages(auth, historyId, callback) {
     var messages = [];
-    partialSyncListMessagesInitial(auth, historyId, function (err, resp) {
+    partialSyncListMessagesInitial(auth, historyId, function(err, resp) {
         if (err) {
             return callback(err, null);
         }
-        partialSyncListMessagesPage(auth, resp, messages, function (err, messages, historyId) {
+        partialSyncListMessagesPage(auth, resp, messages, function(err, messages, historyId) {
             if (err) {
                 return callback(err, null);
             }
@@ -254,9 +266,9 @@ function partialSyncListMessages(auth, historyId, callback) {
     });
 }
 
-var getHeader = function (headers, name) {
+var getHeader = function(headers, name) {
     var header = '';
-    headers.forEach(function (entry) {
+    headers.forEach(function(entry) {
         if (entry.name === name) {
             header = entry.value;
         }
@@ -264,31 +276,31 @@ var getHeader = function (headers, name) {
     return header;
 };
 
-exports.getMessages = function (oauth, options, messageIds, callback) {
+exports.getMessages = function(oauth, options, messageIds, callback) {
     batch.setAuth(oauth);
     var gmail = google.gmail({
         version: 'v1'
     });
     var gmailApiFormat;
     switch (options.format) {
-    case 'list':
-        gmailApiFormat = 'metadata';
-        break;
-    case 'metadata':
-        gmailApiFormat = 'metadata';
-        break;
-    case 'raw':
-        gmailApiFormat = 'raw';
-        break;
-    case 'full':
-        gmailApiFormat = 'full';
-        break;
-    default:
-        gmailApiFormat = 'full';
+        case 'list':
+            gmailApiFormat = 'metadata';
+            break;
+        case 'metadata':
+            gmailApiFormat = 'metadata';
+            break;
+        case 'raw':
+            gmailApiFormat = 'raw';
+            break;
+        case 'full':
+            gmailApiFormat = 'full';
+            break;
+        default:
+            gmailApiFormat = 'full';
     }
 
     var messages = [];
-    messageIds.forEach(function (messageId) {
+    messageIds.forEach(function(messageId) {
         var params = {
             googleBatch: true,
             userId: 'me',
@@ -298,12 +310,12 @@ exports.getMessages = function (oauth, options, messageIds, callback) {
         batch.add(gmail.users.messages.get(params));
     });
 
-    batch.exec(function (err, responses, errorDetails) {
+    batch.exec(function(err, responses, errorDetails) {
         if (err) {
             return callback(new Error('The API returned an error: ' + JSON.stringify(errorDetails)), null);
         }
 
-        responses.forEach(function (response) {
+        responses.forEach(function(response) {
             var message = {};
             if (response.body.error) {
                 debug('message not found');
@@ -311,8 +323,9 @@ exports.getMessages = function (oauth, options, messageIds, callback) {
             else {
                 message.id = response.body.id;
                 message.historyId = response.body.historyId;
+                message.snippet=response.body.snippet
                 message.raw = response.body.raw;
-        //        debug(message.historyId);
+                //        debug(message.historyId);
                 if (response.body.payload) {
                     message.subject = getHeader(response.body.payload.headers, 'Subject');
                     message.from = getHeader(response.body.payload.headers, 'From');
@@ -327,33 +340,35 @@ exports.getMessages = function (oauth, options, messageIds, callback) {
             }
         });
         batch.clear();
-//        debug(JSON.stringify(messages));
+        //        debug(JSON.stringify(messages));
         callback(null, messages);
     });
 };
 
 function getHistoryId(oauth, message, callback) {
-    exports.getMessages(oauth, {format: 'list'}, [message], function (err, parsedMessages) {
+    exports.getMessages(oauth, {
+        format: 'list'
+    }, [message], function(err, parsedMessages) {
         if (err) {
             return callback(err, null);
         }
-        
+
         var historyId = parsedMessages[0].historyId;
         return callback(null, historyId);
     });
 
 }
 
-function getLastEmail(emails){
+function getLastEmail(emails) {
     var lastEmail = emails.sort(sortBy('-id'))[0];
-    debug('last email: ' +JSON.stringify(lastEmail));
+    debug('last email: ' + JSON.stringify(lastEmail));
     return lastEmail;
 
 }
 
-exports.queryMessages = function (oauth, options, callback) {
+exports.queryMessages = function(oauth, options, callback) {
     var response = {};
-    fullSyncListMessages(oauth, options.query, function (err, messages) {
+    fullSyncListMessages(oauth, options.query, function(err, messages) {
         if (err) {
             return callback(err, null);
         }
@@ -364,7 +379,7 @@ exports.queryMessages = function (oauth, options, callback) {
 
         if (options.format === 'list') {
             response.emails = messages;
-            getHistoryId(oauth, getLastEmail(messages), function (err, historyId) {
+            getHistoryId(oauth, getLastEmail(messages), function(err, historyId) {
                 if (err) {
                     return callback(err, null);
                 }
@@ -373,7 +388,7 @@ exports.queryMessages = function (oauth, options, callback) {
             });
         }
         else {
-            exports.getMessages(oauth, options, messages, function (err, emails) {
+            exports.getMessages(oauth, options, messages, function(err, emails) {
                 if (err) {
                     return callback(err, null);
                 }
@@ -385,9 +400,9 @@ exports.queryMessages = function (oauth, options, callback) {
     });
 };
 
-exports.syncMessages = function (oauth, options, callback) {
+exports.syncMessages = function(oauth, options, callback) {
     var response = {};
-    partialSyncListMessages(oauth, options.historyId, function (err, messages,historyId) {
+    partialSyncListMessages(oauth, options.historyId, function(err, messages, historyId) {
         if (err) {
             return callback(err, null);
         }
@@ -398,7 +413,7 @@ exports.syncMessages = function (oauth, options, callback) {
         }
         if (options.format === 'list') {
             response.emails = messages;
-            getHistoryId(oauth, messages[messages.length - 1], function (err, historyId) {
+            getHistoryId(oauth, messages[messages.length - 1], function(err, historyId) {
                 if (err) {
                     return callback(err, null);
                 }
@@ -407,7 +422,7 @@ exports.syncMessages = function (oauth, options, callback) {
             });
 
         }
-        exports.getMessages(oauth, options, messages, function (err, newEmails) {
+        exports.getMessages(oauth, options, messages, function(err, newEmails) {
             if (err) {
                 return callback(err, null);
             }
